@@ -1,0 +1,42 @@
+---
+version: 2
+jobs:
+  test:
+    working_directory: ~/repo
+    docker:
+      - image: circleci/golang:1.11
+
+    steps:
+      - checkout
+
+      - run:
+          name: Run unit tests
+          command: |-
+            make install
+            make test
+
+  build:
+    working_directory: ~/repo
+    docker:
+      - image: docker:17.05.0-ce-git
+
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.05.0-ce
+
+      - run:
+          name: Build vigilant container image
+          command: |
+            apk update
+            apk add --no-cache make
+            make build-container
+
+workflows:
+  version: 2
+  test_and_build:
+    jobs:
+      - test
+      - build:
+          requires:
+            - test

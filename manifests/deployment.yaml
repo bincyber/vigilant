@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: metacontroller
+  labels:
+    name: metacontroller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vigilant
+  namespace: metacontroller
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: vigilant
+  template:
+    metadata:
+      labels:
+        app: vigilant
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: vigilant
+        image: bincyber/vigilant:v0.1.0
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          failureThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 32Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vigilant
+  namespace: metacontroller
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: vigilant
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8000
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: vigilant
+  namespace: metacontroller
+spec:
+  podSelector:
+    matchLabels:
+      app: vigilant
+  policyTypes:
+  - Ingress
+  ingress:
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8000

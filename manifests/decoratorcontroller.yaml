@@ -1,0 +1,20 @@
+---
+apiVersion: metacontroller.k8s.io/v1alpha1
+kind: DecoratorController
+metadata:
+  name: vigilant
+spec:
+  resources:
+  - apiVersion: v1
+    resource: namespaces
+  attachments:
+  - apiVersion: networking.k8s.io/v1
+    resource: networkpolicies
+    updateStrategy:
+      method: InPlace
+  resyncPeriodSeconds: 900
+  hooks:
+    sync:
+      webhook:
+        url: http://vigilant.metacontroller/sync
+        timeout: 3s
